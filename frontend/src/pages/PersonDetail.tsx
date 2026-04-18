@@ -2,8 +2,10 @@ import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
-import type { PersonDetail as PersonDetailType, TagRead, NoteRead } from "../types/api";
+import type { MessageRead, NoteRead, PersonDetail as PersonDetailType, TagRead } from "../types/api";
 import TagChip from "../components/TagChip";
+import MessageComposer from "../components/MessageComposer";
+import StatusBadge from "../components/StatusBadge";
 
 const STAGES = [
   "not_contacted", "contacted_li", "contacted_email", "contacted_both",
@@ -16,6 +18,13 @@ export default function PersonDetail() {
   const qc = useQueryClient();
   const [newTag, setNewTag] = useState("");
   const [newNote, setNewNote] = useState("");
+  const [showComposer, setShowComposer] = useState(false);
+
+  const { data: messages = [] } = useQuery<MessageRead[]>({
+    queryKey: ["messages", id],
+    queryFn: () => api.get<MessageRead[]>(`/api/messages?person_id=${id}`),
+    enabled: !!id,
+  });
 
   const { data, isLoading } = useQuery<PersonDetailType>({
     queryKey: ["person", id],
@@ -56,10 +65,19 @@ export default function PersonDetail() {
 
   return (
     <div className="max-w-2xl space-y-6">
-      <div className="flex items-center gap-3">
+      {showComposer && (
+        <MessageComposer person={data} onClose={() => setShowComposer(false)} />
+      )}
+      <div className="flex items-center justify-between">
         <Link to="/people" className="text-gray-400 hover:text-gray-600 text-sm">
           ← People
         </Link>
+        <button
+          onClick={() => setShowComposer(true)}
+          className="px-4 py-2 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700"
+        >
+          Draft message
+        </button>
       </div>
 
       <div className="bg-white rounded-lg border border-gray-200 p-6 space-y-4">
@@ -176,6 +194,35 @@ export default function PersonDetail() {
             </button>
           </div>
         </div>
+      </div>
+
+      {/* Messages section */}
+      <div className="bg-white rounded-lg border border-gray-200 p-6 space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-medium text-gray-700">Messages</h2>
+          <button
+            onClick={() => setShowComposer(true)}
+            className="text-xs text-indigo-600 hover:underline"
+          >
+            + Draft
+          </button>
+        </div>
+        {messages.length === 0 ? (
+          <p className="text-xs text-gray-400">No messages yet.</p>
+        ) : (
+          <div className="space-y-2">
+            {messages.map((m) => (
+              <div key={m.id} className="flex items-start justify-between gap-3 text-sm">
+                <div className="min-w-0">
+                  {m.subject && <p className="font-medium text-gray-700 truncate">{m.subject}</p>}
+                  <p className="text-xs text-gray-400 truncate">{m.body.slice(0, 80)}</p>
+                  <p className="text-xs text-gray-300 mt-0.5">{m.channel.replace(/_/g, " ")}</p>
+                </div>
+                <StatusBadge status={m.status} />
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

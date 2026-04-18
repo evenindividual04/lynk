@@ -6,6 +6,9 @@ import PeopleList from "./pages/PeopleList";
 import PersonDetail from "./pages/PersonDetail";
 import PersonNew from "./pages/PersonNew";
 import ImportUpload from "./pages/ImportUpload";
+import TemplatesList from "./pages/TemplatesList";
+import TemplateDetail from "./pages/TemplateDetail";
+import MessagesOutbox from "./pages/MessagesOutbox";
 
 export default function App() {
   return (
@@ -18,6 +21,9 @@ export default function App() {
             <Route path="people/new" element={<PersonNew />} />
             <Route path="people/:id" element={<PersonDetail />} />
             <Route path="imports" element={<ImportUpload />} />
+            <Route path="templates" element={<TemplatesList />} />
+            <Route path="templates/:id" element={<TemplateDetail />} />
+            <Route path="messages" element={<MessagesOutbox />} />
           </Route>
         </Routes>
       </BrowserRouter>

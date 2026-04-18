@@ -2,6 +2,8 @@ import { Link, Outlet, useLocation } from "react-router-dom";
 
 const NAV = [
   { to: "/people", label: "People" },
+  { to: "/messages", label: "Outbox" },
+  { to: "/templates", label: "Templates" },
   { to: "/imports", label: "Import" },
 ];
 
