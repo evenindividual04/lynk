@@ -1,6 +1,6 @@
 import io
 
-from tests.fixtures.sample_csv import make_sample_csv, make_linkedin_csv_with_notes
+from tests.fixtures.sample_csv import make_linkedin_csv_with_notes, make_sample_csv
 
 
 def test_import_csv_basic(client):
@@ -45,10 +45,9 @@ def test_import_csv_dedup(client):
 
 def test_import_errors_capped_at_10(client):
     """Errors list returned should be capped at 10."""
-    bad_rows = "".join(
-        f"P{i},L{i},not-a-linkedin-url-{i},,,\n" for i in range(20)
-    )
-    csv_bytes = ("First Name,Last Name,URL,Email Address,Company,Position,Connected On\n" + bad_rows).encode()
+    bad_rows = "".join(f"P{i},L{i},not-a-linkedin-url-{i},,,\n" for i in range(20))
+    header = "First Name,Last Name,URL,Email Address,Company,Position,Connected On\n"
+    csv_bytes = (header + bad_rows).encode()
     resp = client.post(
         "/api/imports",
         files={"file": ("connections.csv", io.BytesIO(csv_bytes), "text/csv")},

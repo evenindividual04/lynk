@@ -1,6 +1,6 @@
 import pytest
 
-from src.lynk.services.dedup import normalize_linkedin_url, is_duplicate
+from src.lynk.services.dedup import is_duplicate, normalize_linkedin_url
 
 
 @pytest.mark.parametrize(

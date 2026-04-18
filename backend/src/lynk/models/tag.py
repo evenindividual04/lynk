@@ -1,14 +1,12 @@
-from typing import Optional
-
 from sqlmodel import Field, SQLModel
 
 
 class Tag(SQLModel, table=True):
     __tablename__ = "tag"
 
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     name: str = Field(unique=True, index=True)
-    color: Optional[str] = None
+    color: str | None = None
 
 
 class PersonTag(SQLModel, table=True):

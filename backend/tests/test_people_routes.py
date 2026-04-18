@@ -74,12 +74,15 @@ def test_patch_person_stage(client):
 def test_list_people_filter_q(client):
     for name in ["Alice Smith", "Bob Jones"]:
         first, last = name.split()
-        client.post("/api/people", json={
-            "linkedin_url": f"https://www.linkedin.com/in/{name.lower().replace(' ', '-')}/",
-            "full_name": name,
-            "first_name": first,
-            "last_name": last,
-        })
+        client.post(
+            "/api/people",
+            json={
+                "linkedin_url": f"https://www.linkedin.com/in/{name.lower().replace(' ', '-')}/",
+                "full_name": name,
+                "first_name": first,
+                "last_name": last,
+            },
+        )
     resp = client.get("/api/people?q=Alice")
     assert resp.status_code == 200
     data = resp.json()
@@ -89,12 +92,15 @@ def test_list_people_filter_q(client):
 
 def test_pagination(client):
     for i in range(5):
-        client.post("/api/people", json={
-            "linkedin_url": f"https://www.linkedin.com/in/person-{i}/",
-            "full_name": f"Person {i}",
-            "first_name": "Person",
-            "last_name": str(i),
-        })
+        client.post(
+            "/api/people",
+            json={
+                "linkedin_url": f"https://www.linkedin.com/in/person-{i}/",
+                "full_name": f"Person {i}",
+                "first_name": "Person",
+                "last_name": str(i),
+            },
+        )
     resp = client.get("/api/people?page=1&page_size=2")
     data = resp.json()
     assert data["total"] == 5

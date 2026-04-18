@@ -1,10 +1,13 @@
 def _create_person(client, slug: str) -> dict:
-    return client.post("/api/people", json={
-        "linkedin_url": f"https://www.linkedin.com/in/{slug}/",
-        "full_name": slug.replace("-", " ").title(),
-        "first_name": "Tag",
-        "last_name": "Test",
-    }).json()
+    return client.post(
+        "/api/people",
+        json={
+            "linkedin_url": f"https://www.linkedin.com/in/{slug}/",
+            "full_name": slug.replace("-", " ").title(),
+            "first_name": "Tag",
+            "last_name": "Test",
+        },
+    ).json()
 
 
 def test_create_tag(client):

@@ -1,11 +1,10 @@
 from datetime import date, datetime
-from enum import Enum
-from typing import Optional
+from enum import StrEnum
 
 from sqlmodel import Field, SQLModel
 
 
-class Stage(str, Enum):
+class Stage(StrEnum):
     not_contacted = "not_contacted"
     contacted_li = "contacted_li"
     contacted_email = "contacted_email"
@@ -20,7 +19,7 @@ class Stage(str, Enum):
     opted_out = "opted_out"
 
 
-class Source(str, Enum):
+class Source(StrEnum):
     csv_import = "csv_import"
     manual = "manual"
     discovery = "discovery"
@@ -29,17 +28,17 @@ class Source(str, Enum):
 class Person(SQLModel, table=True):
     __tablename__ = "person"
 
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     linkedin_url: str = Field(unique=True, index=True)
     full_name: str
     first_name: str
     last_name: str
-    headline: Optional[str] = None
-    location: Optional[str] = None
-    connected_date: Optional[date] = None
-    current_company_id: Optional[int] = Field(default=None, foreign_key="company.id", index=True)
-    current_position_title: Optional[str] = None
-    email: Optional[str] = None
+    headline: str | None = None
+    location: str | None = None
+    connected_date: date | None = None
+    current_company_id: int | None = Field(default=None, foreign_key="company.id", index=True)
+    current_position_title: str | None = None
+    email: str | None = None
     priority: int = Field(default=0)
     stage: Stage = Field(default=Stage.not_contacted)
     source: Source = Field(default=Source.manual)
@@ -50,10 +49,10 @@ class Person(SQLModel, table=True):
 class Position(SQLModel, table=True):
     __tablename__ = "position"
 
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     person_id: int = Field(foreign_key="person.id", index=True)
-    company_id: Optional[int] = Field(default=None, foreign_key="company.id")
-    title: Optional[str] = None
-    start_date: Optional[date] = None
-    end_date: Optional[date] = None
+    company_id: int | None = Field(default=None, foreign_key="company.id")
+    title: str | None = None
+    start_date: date | None = None
+    end_date: date | None = None
     is_current: bool = Field(default=True)

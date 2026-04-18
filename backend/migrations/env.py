@@ -9,8 +9,8 @@ from sqlmodel import SQLModel
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Import all models so SQLModel.metadata is populated
+import src.lynk.api.routes.imports  # noqa: F401 E402
 import src.lynk.models  # noqa: F401 E402
-
 from src.lynk.config import settings  # noqa: E402
 
 config = context.config

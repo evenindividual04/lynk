@@ -1,7 +1,22 @@
+import csv
+import io
+
+from sqlmodel import select
+
+from src.lynk.models.person import Person, Position, Source
+from src.lynk.services.csv_import import import_csv
 from tests.fixtures.sample_csv import make_linkedin_csv_with_notes, make_sample_csv
 
-from src.lynk.services.csv_import import import_csv
-from src.lynk.models.person import Source
+_HDR = ["First Name", "Last Name", "URL", "Email Address", "Company", "Position", "Connected On"]
+
+
+def _make_csv(*rows: list[str]) -> bytes:
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(_HDR)
+    for row in rows:
+        w.writerow(row)
+    return buf.getvalue().encode()
 
 
 def test_import_basic(session):
@@ -22,19 +37,11 @@ def test_import_with_linkedin_preamble(session):
 
 def test_import_deduplication(session):
     url = "https://www.linkedin.com/in/test-person/"
-    csv1 = make_sample_csv(0)
-    # Make a single-row CSV with a known URL
-    import io, csv as csv_mod
-    buf = io.StringIO()
-    w = csv_mod.writer(buf)
-    w.writerow(["First Name", "Last Name", "URL", "Email Address", "Company", "Position", "Connected On"])
-    w.writerow(["Alice", "Smith", url, "alice@example.com", "Acme", "Engineer", "01 Jan 2024"])
-    csv1 = buf.getvalue().encode()
+    csv1 = _make_csv(["Alice", "Smith", url, "alice@example.com", "Acme", "Engineer", "01 Jan 2024"])
 
     result1 = import_csv(csv1, session)
     assert result1.imported == 1
 
-    # Re-import the same person
     result2 = import_csv(csv1, session)
     assert result2.imported == 0
     assert result2.merged == 1
@@ -42,18 +49,20 @@ def test_import_deduplication(session):
 
 def test_import_url_normalization(session):
     """Different URL variants for the same person should deduplicate."""
-    import io, csv as csv_mod
-
-    def make_one(url: str, first: str = "Alice", last: str = "Smith") -> bytes:
-        buf = io.StringIO()
-        w = csv_mod.writer(buf)
-        w.writerow(["First Name", "Last Name", "URL", "Email Address", "Company", "Position", "Connected On"])
-        w.writerow([first, last, url, f"{first.lower()}@example.com", "Acme", "Engineer", "01 Jan 2024"])
-        return buf.getvalue().encode()
-
-    csv1 = make_one("https://www.linkedin.com/in/test-person/")
-    csv2 = make_one("http://LinkedIn.COM/in/Test-Person?utm_source=share")
-
+    csv1 = _make_csv(
+        ["Alice", "Smith", "https://www.linkedin.com/in/test-person/", "a@x.com", "Acme", "Eng", "01 Jan 2024"]
+    )
+    csv2 = _make_csv(
+        [
+            "Alice",
+            "Smith",
+            "http://LinkedIn.COM/in/Test-Person?utm_source=share",
+            "a@x.com",
+            "Acme",
+            "Eng",
+            "01 Jan 2024",
+        ]
+    )
     result1 = import_csv(csv1, session)
     result2 = import_csv(csv2, session)
     assert result1.imported == 1
@@ -61,43 +70,25 @@ def test_import_url_normalization(session):
 
 
 def test_import_marks_source_as_csv(session):
-    from sqlmodel import select
-    from src.lynk.models.person import Person
-
-    csv_bytes = make_sample_csv(1)
-    import_csv(csv_bytes, session)
+    import_csv(make_sample_csv(1), session)
     people = list(session.exec(select(Person)).all())
     assert all(p.source == Source.csv_import for p in people)
 
 
 def test_import_skips_missing_url(session):
-    import io, csv as csv_mod
-    buf = io.StringIO()
-    w = csv_mod.writer(buf)
-    w.writerow(["First Name", "Last Name", "URL", "Email Address", "Company", "Position", "Connected On"])
-    w.writerow(["Alice", "Smith", "", "alice@example.com", "Acme", "Engineer", "01 Jan 2024"])
-    csv_bytes = buf.getvalue().encode()
+    csv_bytes = _make_csv(["Alice", "Smith", "", "alice@example.com", "Acme", "Engineer", "01 Jan 2024"])
     result = import_csv(csv_bytes, session)
     assert result.skipped == 1
 
 
 def test_import_position_history_on_merge(session):
     """When a person is re-imported with a new job, the old one becomes history."""
-    import io, csv as csv_mod
-    from sqlmodel import select
-    from src.lynk.models.person import Position
-
     url = "https://www.linkedin.com/in/career-changer/"
 
-    def make_one(company: str, position: str) -> bytes:
-        buf = io.StringIO()
-        w = csv_mod.writer(buf)
-        w.writerow(["First Name", "Last Name", "URL", "Email Address", "Company", "Position", "Connected On"])
-        w.writerow(["Career", "Changer", url, "cc@example.com", company, position, "01 Jan 2024"])
-        return buf.getvalue().encode()
-
-    import_csv(make_one("Old Corp", "Junior Dev"), session)
-    import_csv(make_one("New Corp", "Senior Dev"), session)
+    row1 = ["Career", "Changer", url, "cc@example.com", "Old Corp", "Junior Dev", "01 Jan 2024"]
+    row2 = ["Career", "Changer", url, "cc@example.com", "New Corp", "Senior Dev", "01 Jan 2024"]
+    import_csv(_make_csv(row1), session)
+    import_csv(_make_csv(row2), session)
 
     positions = list(session.exec(select(Position)).all())
     old_pos = next((p for p in positions if not p.is_current), None)

@@ -1,5 +1,4 @@
 from datetime import date
-from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
 
@@ -22,12 +21,12 @@ router = APIRouter(prefix="/people", tags=["people"])
 def list_people(
     session: SessionDep,
     pagination: PaginationDep,
-    q: Optional[str] = None,
-    company: Optional[str] = None,
-    stage: Optional[str] = None,
-    tag: Optional[str] = None,
-    connected_from: Optional[date] = None,
-    connected_to: Optional[date] = None,
+    q: str | None = None,
+    company: str | None = None,
+    stage: str | None = None,
+    tag: str | None = None,
+    connected_from: date | None = None,
+    connected_to: date | None = None,
     sort: str = Query("created_at", pattern="^(created_at|connected_date|full_name|priority)$"),
 ) -> PeopleListResponse:
     items, total = svc.get_people(

@@ -1,5 +1,3 @@
-from typing import Optional
-
 from fastapi import APIRouter
 from sqlmodel import select
 
@@ -11,9 +9,9 @@ router = APIRouter(prefix="/companies", tags=["companies"])
 
 
 @router.get("", response_model=list[CompanyRead])
-def list_companies(session: SessionDep, q: Optional[str] = None) -> list[Company]:
+def list_companies(session: SessionDep, q: str | None = None) -> list[Company]:
     stmt = select(Company)
     if q:
-        stmt = stmt.where(Company.name.ilike(f"%{q}%"))  # type: ignore[union-attr]
-    stmt = stmt.order_by(Company.name).limit(50)  # type: ignore[arg-type]
+        stmt = stmt.where(Company.name.ilike(f"%{q}%"))  # type: ignore[attr-defined]
+    stmt = stmt.order_by(Company.name).limit(50)
     return list(session.exec(stmt).all())

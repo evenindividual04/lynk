@@ -1,6 +1,8 @@
 """Generates a Faker-based sample LinkedIn CSV for tests."""
+
 import csv
 import io
+
 from faker import Faker
 
 fake = Faker()

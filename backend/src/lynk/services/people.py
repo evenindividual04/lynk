@@ -1,25 +1,25 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Optional
+from typing import Any
 
 from sqlmodel import Session, func, or_, select
 
 from ..models.company import Company
 from ..models.note import Note
-from ..models.person import Person, Source, Stage
+from ..models.person import Person, Source
 from ..models.tag import PersonTag, Tag
 
 
 def get_people(
     session: Session,
     *,
-    q: Optional[str] = None,
-    company: Optional[str] = None,
-    stage: Optional[str] = None,
-    tag: Optional[str] = None,
-    connected_from: Optional[date] = None,
-    connected_to: Optional[date] = None,
+    q: str | None = None,
+    company: str | None = None,
+    stage: str | None = None,
+    tag: str | None = None,
+    connected_from: date | None = None,
+    connected_to: date | None = None,
     sort: str = "created_at",
     page: int = 1,
     page_size: int = 50,
@@ -30,32 +30,34 @@ def get_people(
         pattern = f"%{q}%"
         stmt = stmt.where(
             or_(
-                Person.full_name.ilike(pattern),  # type: ignore[union-attr]
-                Person.email.ilike(pattern),  # type: ignore[union-attr]
-                Person.headline.ilike(pattern),  # type: ignore[union-attr]
+                Person.full_name.ilike(pattern),  # type: ignore[attr-defined]
+                Person.email.ilike(pattern),  # type: ignore[union-attr,attr-defined]
+                Person.headline.ilike(pattern),  # type: ignore[union-attr,attr-defined]
             )
         )
 
     if company:
-        stmt = stmt.join(Company, Person.current_company_id == Company.id).where(
-            Company.name.ilike(f"%{company}%")  # type: ignore[union-attr]
+        stmt = stmt.join(Company, Person.current_company_id == Company.id).where(  # type: ignore[arg-type]
+            Company.name.ilike(f"%{company}%")  # type: ignore[attr-defined]
         )
 
     if stage:
         stmt = stmt.where(Person.stage == stage)
 
     if tag:
-        stmt = stmt.join(PersonTag, Person.id == PersonTag.person_id).join(
-            Tag, PersonTag.tag_id == Tag.id
-        ).where(Tag.name == tag)
+        stmt = (
+            stmt.join(PersonTag, Person.id == PersonTag.person_id)  # type: ignore[arg-type]
+            .join(Tag, PersonTag.tag_id == Tag.id)  # type: ignore[arg-type]
+            .where(Tag.name == tag)
+        )
 
     if connected_from:
-        stmt = stmt.where(Person.connected_date >= connected_from)
+        stmt = stmt.where(Person.connected_date >= connected_from)  # type: ignore[operator]
     if connected_to:
-        stmt = stmt.where(Person.connected_date <= connected_to)
+        stmt = stmt.where(Person.connected_date <= connected_to)  # type: ignore[operator]
 
-    sort_col = getattr(Person, sort, Person.created_at)
-    stmt = stmt.order_by(sort_col.desc())  # type: ignore[union-attr]
+    sort_col: Any = getattr(Person, sort, Person.created_at)
+    stmt = stmt.order_by(sort_col.desc())
 
     total = session.exec(select(func.count()).select_from(stmt.subquery())).one()
 
@@ -65,11 +67,11 @@ def get_people(
     return people, total
 
 
-def get_person(session: Session, person_id: int) -> Optional[Person]:
+def get_person(session: Session, person_id: int) -> Person | None:
     return session.get(Person, person_id)
 
 
-def create_person(session: Session, data: dict) -> Person:
+def create_person(session: Session, data: dict[str, Any]) -> Person:
     person = Person(**data)
     person.source = Source.manual
     session.add(person)
@@ -78,7 +80,7 @@ def create_person(session: Session, data: dict) -> Person:
     return person
 
 
-def update_person(session: Session, person: Person, data: dict) -> Person:
+def update_person(session: Session, person: Person, data: dict[str, Any]) -> Person:
     for key, value in data.items():
         setattr(person, key, value)
     person.updated_at = datetime.utcnow()
@@ -101,7 +103,11 @@ def get_notes(session: Session, person_id: int) -> list[Note]:
 
 
 def get_tags_for_person(session: Session, person_id: int) -> list[Tag]:
-    stmt = select(Tag).join(PersonTag, Tag.id == PersonTag.tag_id).where(PersonTag.person_id == person_id)
+    stmt = (
+        select(Tag)
+        .join(PersonTag, Tag.id == PersonTag.tag_id)  # type: ignore[arg-type]
+        .where(PersonTag.person_id == person_id)
+    )
     return list(session.exec(stmt).all())
 
 
@@ -114,7 +120,7 @@ def add_tag_to_person(session: Session, person_id: int, tag_name: str) -> Tag:
 
     existing = session.get(PersonTag, (person_id, tag.id))
     if not existing:
-        person_tag = PersonTag(person_id=person_id, tag_id=tag.id)  # type: ignore[arg-type]
+        person_tag = PersonTag(person_id=person_id, tag_id=tag.id)
         session.add(person_tag)
     session.commit()
     return tag

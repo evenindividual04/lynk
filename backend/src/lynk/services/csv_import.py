@@ -77,7 +77,7 @@ def import_csv(file_bytes: bytes, session: Session) -> ImportResult:
         return result
 
     for idx, row in df.iterrows():
-        row_num = str(int(idx) + header_row + 2)  # type: ignore[arg-type]
+        row_num = str(int(idx) + header_row + 2)  # type: ignore[call-overload,arg-type]
         try:
             raw_url = str(row.get("URL", "")).strip()
             if not raw_url or raw_url.lower() == "nan":
@@ -104,7 +104,8 @@ def import_csv(file_bytes: bytes, session: Session) -> ImportResult:
             if company_name:
                 company = _get_or_create_company(session, company_name)
 
-            existing = session.exec(select(Person).where(Person.linkedin_url == linkedin_url)).first()
+            stmt = select(Person).where(Person.linkedin_url == linkedin_url)
+            existing = session.exec(stmt).first()
 
             if existing:
                 # Merge: archive current position, update fields
@@ -113,7 +114,7 @@ def import_csv(file_bytes: bytes, session: Session) -> ImportResult:
                     or existing.current_company_id != (company.id if company else None)
                 ):
                     old_pos = Position(
-                        person_id=existing.id,  # type: ignore[arg-type]
+                        person_id=existing.id,
                         company_id=existing.current_company_id,
                         title=existing.current_position_title,
                         is_current=False,
@@ -126,7 +127,10 @@ def import_csv(file_bytes: bytes, session: Session) -> ImportResult:
                 existing.email = email or existing.email
                 existing.current_company_id = company.id if company else existing.current_company_id
                 existing.current_position_title = position_title or existing.current_position_title
-                if connected_date and (not existing.connected_date or connected_date > existing.connected_date):
+                newer_date = connected_date and (
+                    not existing.connected_date or connected_date > existing.connected_date
+                )
+                if newer_date:
                     existing.connected_date = connected_date
                 existing.updated_at = datetime.utcnow()
                 session.add(existing)
@@ -149,7 +153,7 @@ def import_csv(file_bytes: bytes, session: Session) -> ImportResult:
 
                 if position_title:
                     pos = Position(
-                        person_id=person.id,  # type: ignore[arg-type]
+                        person_id=person.id,
                         company_id=company.id if company else None,
                         title=position_title,
                         is_current=True,
