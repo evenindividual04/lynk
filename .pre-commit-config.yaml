@@ -1,0 +1,39 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.11
+    hooks:
+      - id: ruff
+        args: [--fix]
+        files: ^backend/
+      - id: ruff-format
+        files: ^backend/
+
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy
+        entry: bash -c 'cd backend && uv run mypy src/'
+        language: system
+        files: ^backend/src/
+        pass_filenames: false
+
+      - id: pytest-changed
+        name: pytest
+        entry: bash -c 'cd backend && uv run pytest --cov=src/lynk -q'
+        language: system
+        files: ^backend/
+        pass_filenames: false
+
+      - id: frontend-typecheck
+        name: frontend typecheck
+        entry: bash -c 'cd frontend && pnpm typecheck'
+        language: system
+        files: ^frontend/src/
+        pass_filenames: false
+
+      - id: frontend-test
+        name: frontend tests
+        entry: bash -c 'cd frontend && pnpm test'
+        language: system
+        files: ^frontend/src/
+        pass_filenames: false
