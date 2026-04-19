@@ -39,6 +39,8 @@ class Person(SQLModel, table=True):
     current_company_id: int | None = Field(default=None, foreign_key="company.id", index=True)
     current_position_title: str | None = None
     email: str | None = None
+    email_valid: bool | None = None  # None=unknown, True=verified, False=bounced
+    opted_out_at: datetime | None = None
     priority: int = Field(default=0)
     stage: Stage = Field(default=Stage.not_contacted)
     source: Source = Field(default=Source.manual)

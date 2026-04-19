@@ -11,7 +11,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 # Import all models so SQLModel.metadata is populated
 import src.lynk.api.routes.imports  # noqa: F401 E402
 import src.lynk.models  # noqa: F401 E402
+import src.lynk.models.email_candidate  # noqa: F401 E402
 import src.lynk.models.follow_up  # noqa: F401 E402
+import src.lynk.models.inbound_event  # noqa: F401 E402
 import src.lynk.models.message  # noqa: F401 E402
 import src.lynk.models.template  # noqa: F401 E402
 from src.lynk.config import settings  # noqa: E402

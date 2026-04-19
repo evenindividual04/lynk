@@ -52,6 +52,8 @@ export interface NoteRead {
 export interface PersonDetail extends PersonRead {
   tags: TagRead[];
   notes: NoteRead[];
+  email_valid: boolean | null;
+  opted_out_at: string | null;
 }
 
 export interface PeopleListResponse {
@@ -148,5 +150,44 @@ export interface FollowUpTaskRead {
   scheduled_for: string;
   status: FollowUpStatus;
   generated_message_id: number | null;
+  created_at: string;
+}
+
+// Phase 3: Smart features
+
+export type EmailSource =
+  | "csv"
+  | "pattern_db"
+  | "permutation"
+  | "hunter"
+  | "apollo"
+  | "skrapp"
+  | "linkedin_contact"
+  | "manual";
+
+export interface EmailCandidateRead {
+  id: number;
+  person_id: number;
+  email: string;
+  source: EmailSource;
+  confidence: number;
+  verified: boolean;
+  bounced: boolean;
+  created_at: string;
+}
+
+export type InboundKind = "reply" | "bounce_hard" | "bounce_soft" | "opt_out" | "auto_reply";
+
+export interface InboundEventRead {
+  id: number;
+  message_id: number | null;
+  person_id: number | null;
+  kind: InboundKind;
+  gmail_msg_id: string;
+  subject: string | null;
+  snippet: string | null;
+  from_address: string | null;
+  received_at: string;
+  processed: boolean;
   created_at: string;
 }

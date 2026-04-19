@@ -10,7 +10,7 @@ from sqlmodel import Session, select
 from ..config import settings
 from ..db import engine
 from ..models.follow_up import FollowUpKind, FollowUpStatus, FollowUpTask
-from ..models.message import Message, MessageStatus
+from ..models.message import Message, MessageStatus, PixelHit
 from ..models.person import Person
 from ..models.template import Channel
 
@@ -18,8 +18,6 @@ logger = logging.getLogger(__name__)
 
 _scheduler: BackgroundScheduler | None = None
 
-# Only schedule two follow-ups: Day 3 nudge (assume unopened until Phase 3 open detection)
-# and Day 7 final bump. nudge_opened is set in Phase 3 when pixel data confirms open.
 FOLLOW_UP_SCHEDULE = [
     (FollowUpKind.nudge_unopened, 3),
     (FollowUpKind.final_bump, 7),
@@ -47,6 +45,16 @@ def start_scheduler() -> None:
             id="process_follow_ups",
             replace_existing=True,
         )
+        if settings.inbound_polling_enabled:
+            from .inbound_poller import poll_inbox
+
+            sched.add_job(
+                poll_inbox,
+                "interval",
+                minutes=10,
+                id="poll_inbox",
+                replace_existing=True,
+            )
         sched.start()
         logger.info("Follow-up scheduler started")
 
@@ -121,6 +129,13 @@ def _generate_follow_up(session: Session, task: FollowUpTask) -> None:
         logger.warning("Parent message or person not found for task %s", task.id)
         return
 
+    # Upgrade nudge_unopened → nudge_opened if pixel hit exists
+    effective_kind = task.kind
+    if task.kind == FollowUpKind.nudge_unopened:
+        pixel_hit = session.exec(select(PixelHit).where(PixelHit.message_id == parent.id).limit(1)).first()
+        if pixel_hit:
+            effective_kind = FollowUpKind.nudge_opened
+
     kind_descriptions = {
         FollowUpKind.nudge_unopened: "gentle follow-up (the original email may not have been seen)",
         FollowUpKind.nudge_opened: "gentle follow-up (the original email was opened but not replied to)",
@@ -128,7 +143,7 @@ def _generate_follow_up(session: Session, task: FollowUpTask) -> None:
     }
 
     body_prompt = (
-        f"This is a {kind_descriptions[task.kind]}.\n"
+        f"This is a {kind_descriptions[effective_kind]}.\n"
         f"Reference the original message from {parent.sent_at} if relevant.\n"
         f"Keep it very short (2-3 sentences max). Be respectful of their time.\n\n"
         f"Original message body:\n{parent.body}"
@@ -152,7 +167,7 @@ def _generate_follow_up(session: Session, task: FollowUpTask) -> None:
                 template_version=mock_tv,
                 scenario_context="follow-up to previous outreach",
                 channel=parent.channel,
-                custom_instructions=kind_descriptions[task.kind],
+                custom_instructions=kind_descriptions[effective_kind],
             )
             draft_body = result.get("body") or body_prompt
         except Exception as exc:

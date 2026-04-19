@@ -9,6 +9,7 @@ import ImportUpload from "./pages/ImportUpload";
 import TemplatesList from "./pages/TemplatesList";
 import TemplateDetail from "./pages/TemplateDetail";
 import MessagesOutbox from "./pages/MessagesOutbox";
+import InboundActivity from "./pages/InboundActivity";
 
 export default function App() {
   return (
@@ -24,6 +25,7 @@ export default function App() {
             <Route path="templates" element={<TemplatesList />} />
             <Route path="templates/:id" element={<TemplateDetail />} />
             <Route path="messages" element={<MessagesOutbox />} />
+            <Route path="inbound" element={<InboundActivity />} />
           </Route>
         </Routes>
       </BrowserRouter>

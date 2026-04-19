@@ -5,13 +5,15 @@ from datetime import datetime
 from fastapi import APIRouter, HTTPException
 from sqlmodel import select
 
-from ...config import settings
+from ...config import settings  # noqa: F401 — used for sending_enabled and smtp_verify_timeout
 from ...models.company import Company
 from ...models.message import Message, MessageStatus
-from ...models.person import Person, Stage
+from ...models.person import Person, Stage  # noqa: F401 — Stage used in opted_out guard
 from ...models.template import Channel, Template, TemplateVersion
 from ...schemas.message import DraftRequest, MessageRead, MessageUpdate, SendResponse
 from ...services import claude_client
+from ...services.email_verifier import verify_smtp, verify_syntax
+from ...services.pattern_learner import record_successful_send
 from ...services.scheduler import schedule_follow_ups
 from ...services.smtp_sender import send_email
 from ..deps import SessionDep
@@ -54,6 +56,8 @@ def list_messages(
 @router.post("/draft", response_model=MessageRead, status_code=201)
 def draft_message(data: DraftRequest, session: SessionDep) -> Message:
     person = _get_person_or_404(session, data.person_id)
+    if person.stage == Stage.opted_out:
+        raise HTTPException(status_code=403, detail="Person has opted out — cannot draft messages")
 
     company_name: str | None = None
     if person.current_company_id:
@@ -129,14 +133,23 @@ def send_message(message_id: int, session: SessionDep) -> SendResponse:
         raise HTTPException(status_code=400, detail="Message is not in a sendable state")
 
     person = _get_person_or_404(session, message.person_id)
+    if person.stage == Stage.opted_out:
+        raise HTTPException(status_code=403, detail="Person has opted out — cannot send messages")
 
     # LinkedIn channels: mark sent immediately (user copies to LI manually)
     if message.channel in (Channel.li_connection_note, Channel.li_dm):
         return _mark_sent_linkedin(session, message, person)
 
-    # Email channel: SMTP send (or short-circuit if disabled)
+    # Email channel: syntax + SMTP verification before send
     if not person.email:
         raise HTTPException(status_code=422, detail="Person has no email address")
+
+    if not verify_syntax(person.email):
+        raise HTTPException(status_code=422, detail=f"Email address '{person.email}' has invalid syntax")
+
+    deliverable, reason = verify_smtp(person.email, timeout=settings.smtp_verify_timeout_seconds)
+    if not deliverable:
+        raise HTTPException(status_code=422, detail=f"Email address failed SMTP check: {reason}")
 
     success, thread_id, error = send_email(message, person.email, person.full_name)
 
@@ -151,9 +164,11 @@ def send_message(message_id: int, session: SessionDep) -> SendResponse:
         message.status = MessageStatus.sent
         message.sent_at = datetime.utcnow()
         message.thread_id = thread_id
+        person.email_valid = True
         _advance_stage(person, message.channel)
         session.add(person)
         schedule_follow_ups(session, message)
+        record_successful_send(session, person, person.email)
     else:
         message.status = MessageStatus.failed
         message.error = error

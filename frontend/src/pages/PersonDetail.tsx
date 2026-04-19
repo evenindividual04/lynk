@@ -2,10 +2,19 @@ import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
-import type { MessageRead, NoteRead, PersonDetail as PersonDetailType, TagRead } from "../types/api";
+import type { InboundEventRead, MessageRead, NoteRead, PersonDetail as PersonDetailType, TagRead } from "../types/api";
 import TagChip from "../components/TagChip";
 import MessageComposer from "../components/MessageComposer";
+import EmailFinderPanel from "../components/EmailFinderPanel";
 import StatusBadge from "../components/StatusBadge";
+
+const INBOUND_KIND_LABEL: Record<string, string> = {
+  reply: "Reply",
+  bounce_hard: "Hard bounce",
+  bounce_soft: "Soft bounce",
+  opt_out: "Opt-out",
+  auto_reply: "Auto-reply",
+};
 
 const STAGES = [
   "not_contacted", "contacted_li", "contacted_email", "contacted_both",
@@ -19,10 +28,17 @@ export default function PersonDetail() {
   const [newTag, setNewTag] = useState("");
   const [newNote, setNewNote] = useState("");
   const [showComposer, setShowComposer] = useState(false);
+  const [showFinder, setShowFinder] = useState(false);
 
   const { data: messages = [] } = useQuery<MessageRead[]>({
     queryKey: ["messages", id],
     queryFn: () => api.get<MessageRead[]>(`/api/messages?person_id=${id}`),
+    enabled: !!id,
+  });
+
+  const { data: inboundEvents = [] } = useQuery<InboundEventRead[]>({
+    queryKey: ["inbound", id],
+    queryFn: () => api.get<InboundEventRead[]>(`/api/inbound/events?person_id=${id}&limit=20`),
     enabled: !!id,
   });
 
@@ -68,16 +84,37 @@ export default function PersonDetail() {
       {showComposer && (
         <MessageComposer person={data} onClose={() => setShowComposer(false)} />
       )}
+      {showFinder && (
+        <EmailFinderPanel personId={data.id} onClose={() => setShowFinder(false)} />
+      )}
       <div className="flex items-center justify-between">
         <Link to="/people" className="text-gray-400 hover:text-gray-600 text-sm">
           ← People
         </Link>
-        <button
-          onClick={() => setShowComposer(true)}
-          className="px-4 py-2 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700"
-        >
-          Draft message
-        </button>
+        <div className="flex items-center gap-2">
+          {data.email_valid === false && (
+            <span className="text-xs px-2 py-0.5 bg-red-100 text-red-600 rounded">bounced</span>
+          )}
+          {data.opted_out_at && (
+            <span className="text-xs px-2 py-0.5 bg-gray-200 text-gray-500 rounded">opted out</span>
+          )}
+          {!data.email && !data.opted_out_at && (
+            <button
+              onClick={() => setShowFinder(true)}
+              className="px-3 py-1.5 border border-indigo-300 text-indigo-600 text-sm rounded hover:bg-indigo-50"
+            >
+              Find email
+            </button>
+          )}
+          {!data.opted_out_at && (
+            <button
+              onClick={() => setShowComposer(true)}
+              className="px-4 py-2 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700"
+            >
+              Draft message
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="bg-white rounded-lg border border-gray-200 p-6 space-y-4">
@@ -196,6 +233,26 @@ export default function PersonDetail() {
         </div>
       </div>
 
+      {/* Email section — show finder inline if email missing */}
+      {data.email && (
+        <div className="bg-white rounded-lg border border-gray-200 p-4 flex items-center justify-between">
+          <div>
+            <p className="text-xs text-gray-500 mb-0.5">Email</p>
+            <p className="text-sm text-gray-800">{data.email}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            {data.email_valid === true && <span className="text-xs text-green-600">✓ verified</span>}
+            {data.email_valid === false && <span className="text-xs text-red-500">✗ bounced</span>}
+            <button
+              onClick={() => setShowFinder(true)}
+              className="text-xs text-indigo-600 hover:underline"
+            >
+              Find other
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Messages section */}
       <div className="bg-white rounded-lg border border-gray-200 p-6 space-y-3">
         <div className="flex items-center justify-between">
@@ -224,6 +281,25 @@ export default function PersonDetail() {
           </div>
         )}
       </div>
+      {/* Inbound events */}
+      {inboundEvents.length > 0 && (
+        <div className="bg-white rounded-lg border border-gray-200 p-6 space-y-3">
+          <h2 className="text-sm font-medium text-gray-700">Inbound Activity</h2>
+          <div className="space-y-2">
+            {inboundEvents.map((e) => (
+              <div key={e.id} className="flex items-start gap-3 text-sm">
+                <span className="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 mt-0.5 shrink-0">
+                  {INBOUND_KIND_LABEL[e.kind] ?? e.kind}
+                </span>
+                <div className="min-w-0">
+                  <p className="text-gray-700 truncate">{e.subject ?? "(no subject)"}</p>
+                  <p className="text-xs text-gray-400">{new Date(e.received_at).toLocaleDateString()}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -23,6 +23,17 @@ class Settings(BaseSettings):
     # Scheduler
     follow_up_scheduler_enabled: bool = True
 
+    # Email finder API keys (empty = strategy skipped)
+    hunter_api_key: str = ""
+    apollo_api_key: str = ""
+    skrapp_api_key: str = ""
+
+    # Inbound IMAP polling
+    inbound_polling_enabled: bool = True
+    imap_host: str = "imap.gmail.com"
+    imap_port: int = 993
+    smtp_verify_timeout_seconds: int = 8
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",")]

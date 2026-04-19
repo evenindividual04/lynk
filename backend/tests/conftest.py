@@ -3,7 +3,9 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session, SQLModel, StaticPool, create_engine
 
 import src.lynk.api.routes.imports  # noqa: F401 — registers ImportRecord in SQLModel.metadata
+import src.lynk.models.email_candidate  # noqa: F401
 import src.lynk.models.follow_up  # noqa: F401
+import src.lynk.models.inbound_event  # noqa: F401
 import src.lynk.models.message  # noqa: F401
 import src.lynk.models.template  # noqa: F401
 from src.lynk.api.deps import get_session
